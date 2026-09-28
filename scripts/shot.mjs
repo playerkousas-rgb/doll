@@ -9,7 +9,7 @@ import { chromium as pw } from 'playwright-core'
 // 無頭瀏覽器環境沒有系統字型，把 Noto Sans TC 用 data URL 注入
 const font = readFileSync('node_modules/@expo-google-fonts/noto-sans-tc/400Regular/NotoSansTC_400Regular.ttf')
 const fontCss = `@font-face{font-family:'NotoTC';src:url(data:font/ttf;base64,${font.toString('base64')}) format('truetype');}
-  body, button, input, textarea, h1, h2, p, span { font-family:'NotoTC', sans-serif !important; }`
+  body, button, input, textarea, h1, h2, h3, p, span { font-family:'NotoTC', sans-serif !important; }`
 
 const exe = await chromium.executablePath()
 const browser = await pw.launch({
@@ -17,29 +17,36 @@ const browser = await pw.launch({
   args: [...chromium.args, '--no-sandbox', '--disable-gpu'],
   headless: true,
 })
-
-// 注意：sparticuz 以 --single-process 運行，關掉 page 會連瀏覽器一起終結 → 全程重用同一頁
-const page = await browser.newPage({ viewport: { width: 1500, height: 950 } })
+const page = await browser.newPage({ viewport: { width: 1560, height: 960 } })
 const url = process.env.SHOT_URL ?? 'http://localhost:5173/'
 
-await page.goto(url, { waitUntil: 'networkidle' })
-await page.addStyleTag({ content: fontCss })
-await page.waitForTimeout(500)
-await page.screenshot({ path: 'app-screenshot.png' })
+const open = async () => {
+  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.addStyleTag({ content: fontCss })
+  await page.waitForTimeout(700)
+}
 
-// 第二張：換個造型＋切到分享分頁（順便驗證 localStorage 讀回）
-await page.evaluate(() => {
-  localStorage.setItem(
-    'doll.current.v1',
-    JSON.stringify({ skin: 'wheat', face: 'heart', hair: 'twintail', hairColor: 'gold', eyes: 'wink', body: 'normal' }),
-  )
-})
-await page.reload({ waitUntil: 'networkidle' })
-await page.addStyleTag({ content: fontCss })
-const tabs = page.getByRole('tab')
-if ((await tabs.count()) >= 3) await tabs.nth(2).click()
-await page.waitForTimeout(400)
-await page.screenshot({ path: 'app-screenshot-2.png' })
+// 1. 主編輯器（屬性分頁）
+await open()
+await page.screenshot({ path: 'shot-editor.png' })
+
+// 2. 左側圖層面板
+await open()
+await page.getByRole('button', { name: '圖層', exact: true }).click()
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'shot-layers.png' })
+
+// 3. 右側提示詞分頁（加一隻公仔再切）
+await open()
+await page.getByRole('tab', { name: '提示詞' }).click()
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'shot-prompt.png' })
+
+// 4. 預覽模式（按 P）
+await open()
+await page.keyboard.press('p')
+await page.waitForTimeout(600)
+await page.screenshot({ path: 'shot-preview.png' })
 
 console.log('screenshots done')
 process.exit(0)

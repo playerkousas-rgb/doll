@@ -10,7 +10,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "sheet": "vite build --ssr scripts/render-preview.tsx --outDir .preview-build && node .preview-build/render-preview.js",
-    "shot": "node scripts/shot.mjs"
+    "shot": "node scripts/shot.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",
