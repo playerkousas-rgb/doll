@@ -18,7 +18,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@expo-google-fonts/noto-sans-tc": "^0.4.5",
+    "@expo-google-fonts/noto-sans-tc": "^0.4.3",
     "@resvg/resvg-js": "^2.6.2",
     "@sparticuz/chromium": "^143.0.4",
     "@types/node": "^24.13.3",
