@@ -64,4 +64,8 @@ export const P = {
   copy: 'M9 9h11v11H9zM5 15V4h11',
   note: 'M6 4h12v16H6zM9 8h6M9 12h6M9 16h3',
   check: 'M5 12.5l4.5 4.5L19 7.5',
+  chevronDown: 'M6.5 9.5L12 15l5.5-5.5',
+  chevronUp: 'M6.5 14.5L12 9l5.5 5.5',
+  panelLeft: 'M4 5h16v14H4zM10 5v14',
+  panelRight: 'M4 5h16v14H4zM14 5v14',
 } as const

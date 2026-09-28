@@ -43,56 +43,6 @@ button {
   height: 100%;
 }
 
-/* ── Header ─────────────────────────── */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 14px;
-  background: var(--card);
-  border-bottom: 1px solid var(--line);
-  z-index: 20;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: var(--green);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.brand-text h1 {
-  margin: 0;
-  font-size: 16px;
-  color: var(--green-dark);
-  line-height: 1.25;
-}
-
-.brand-text p {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
 /* ── 按鈕 ─────────────────────────── */
 .btn {
   border: 1px solid var(--line);
@@ -193,9 +143,9 @@ button {
   min-height: 0;
 }
 
-/* ── 最左圖示欄 ─────────────────────── */
+/* ── 最左圖示欄（logo＋切換＋匯出分享） ── */
 .rail {
-  width: 56px;
+  width: 52px;
   flex-shrink: 0;
   background: var(--card);
   border-right: 1px solid var(--line);
@@ -203,7 +153,21 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 10px 0;
+  padding: 8px 0;
+  z-index: 8;
+}
+
+.rail-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--green);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .rail-btn {
@@ -320,18 +284,39 @@ button {
   gap: 6px;
 }
 
-.parts-group-hint {
-  margin-left: auto;
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--muted);
+/* 可摺疊分組標題（參考專案的 group header：icon＋名稱＋chevron） */
+.group-toggle {
+  border: none;
+  background: none;
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--green-dark);
+  width: 100%;
 }
 
-.parts-group-hint.is-soon {
-  background: var(--amber-soft);
+.group-toggle .chevron {
+  margin-left: auto;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.group-static {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.soon-hint {
+  font-size: 10px;
+  font-weight: 500;
   color: #a56a13;
+  background: var(--amber-soft);
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: 1.5px 7px;
 }
 
 .parts-grid {
@@ -360,10 +345,16 @@ button.part-tile:hover {
   transform: translateY(-1px);
 }
 
+/* 未登場的零件：與一般磁磚同款，只做靜音處理（保持版面整齊） */
 .part-tile.is-soon {
-  border-style: dashed;
-  opacity: 0.85;
+  background: #f6f7f6;
+  border-color: #ebeeec;
+  color: var(--muted);
   cursor: default;
+}
+
+.part-tile.is-soon .part-label {
+  color: #98a29b;
 }
 
 .part-art {
@@ -393,7 +384,7 @@ button.part-tile:hover {
   color: var(--ink);
 }
 
-.soon-badge {
+.soon-badge-removed {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -529,19 +520,17 @@ button.part-tile:hover {
   position: absolute;
 }
 
+/* 素面標籤（參考專案：畫布物件上方的「📱 名稱」純文字） */
 .board-label {
   position: absolute;
-  top: -26px;
-  left: 2px;
+  top: -27px;
+  left: 3px;
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 12.5px;
   font-weight: 600;
-  color: #3e4b42;
-  background: rgba(255, 255, 255, 0.78);
-  padding: 2px 9px;
-  border-radius: 999px;
+  color: #445049;
   white-space: nowrap;
 }
 
@@ -628,13 +617,27 @@ button.part-tile:hover {
   text-align: center;
 }
 
-.sel-hint {
-  bottom: 18px;
-  left: 18px;
-  padding: 8px 14px;
-  gap: 7px;
-  font-size: 12.5px;
+/* 面板收合時的恢復按鈕（畫布邊緣的 ⊞） */
+.restore-pill {
+  padding: 7px;
   color: var(--muted);
+  cursor: pointer;
+}
+
+.restore-pill:hover {
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border-color: #cfe4d4;
+}
+
+.restore-left {
+  top: 14px;
+  left: 14px;
+}
+
+.restore-right {
+  top: 14px;
+  right: 14px;
 }
 
 .preview-pill {
@@ -665,34 +668,48 @@ button.part-tile:hover {
   min-height: 0;
 }
 
+/* 分段控制（參考專案：圖示分段鈕＋右上收合） */
 .inspector-tabs {
   display: flex;
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 4px;
+  border-bottom: none;
   flex-shrink: 0;
 }
 
+.inspector-segmented {
+  display: flex;
+  gap: 2px;
+  background: #f0f2f0;
+  border-radius: 999px;
+  padding: 3px;
+}
+
 .inspector-tab {
-  flex: 1;
   border: none;
   background: none;
-  padding: 12px 6px;
-  font-size: 13.5px;
+  width: 40px;
+  height: 32px;
+  border-radius: 999px;
   color: var(--muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border-bottom: 2px solid transparent;
 }
 
 .inspector-tab:hover {
-  background: #f7f9f7;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .inspector-tab.is-active {
-  color: var(--green-dark);
-  font-weight: 700;
-  border-bottom-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.inspector-collapse {
+  margin-left: auto;
+  color: var(--muted);
 }
 
 .inspector-empty {

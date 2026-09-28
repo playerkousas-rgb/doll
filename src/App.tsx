@@ -58,6 +58,8 @@ export default function App() {
   const [tool, setTool] = useState<'select' | 'hand'>('select')
   const [view, setView] = useState<View>({ x: 80, y: 40, z: 1 })
   const [leftView, setLeftView] = useState<LeftView>('parts')
+  const [leftOpen, setLeftOpen] = useState(true)
+  const [rightOpen, setRightOpen] = useState(true)
   const [preview, setPreview] = useState(false)
   const [histVer, setHistVer] = useState(0)
   const [toast, setToast] = useState('')
@@ -163,7 +165,6 @@ export default function App() {
       const doll = newDoll(template.design, nextName(docRef.current.elements), world.x, world.y)
       commit((d) => ({ ...d, elements: [...d.elements, doll] }))
       setSelId(doll.id)
-      setLeftView('parts')
     },
     [commit],
   )
@@ -377,54 +378,48 @@ export default function App() {
     fit,
     zoomBy,
     togglePreview,
+    leftOpen,
+    rightOpen,
+    onOpenLeft: () => setLeftOpen(true),
+    onOpenRight: () => setRightOpen(true),
   }
   // histVer 讓 canUndo/canRedo 在歷史變動時重算
   void histVer
 
-  const railBtn = (id: LeftView, icon: string, label: string, disabled?: boolean, onClick?: () => void) => (
-    <button
-      key={id}
-      type="button"
-      className={`rail-btn ${leftView === id && !disabled ? 'is-active' : ''}`}
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick ?? (() => setLeftView(id))}
-    >
-      <Icon d={icon} />
-    </button>
-  )
+  /** 左欄圖示：再點一次同一顆 = 收合面板 */
+  const railViewBtn = (id: LeftView, icon: string, label: string) => {
+    const active = leftView === id && leftOpen
+    return (
+      <button
+        key={id}
+        type="button"
+        className={`rail-btn ${active ? 'is-active' : ''}`}
+        title={label}
+        aria-label={label}
+        onClick={() => {
+          if (leftView === id && leftOpen) setLeftOpen(false)
+          else {
+            setLeftView(id)
+            setLeftOpen(true)
+          }
+        }}
+      >
+        <Icon d={icon} />
+      </button>
+    )
+  }
 
   return (
     <div className={`app ${preview ? 'is-preview' : ''}`}>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">
-            <Icon d={P.tent} size={22} strokeWidth={2} />
-          </span>
-          <div className="brand-text">
-            <h1>童軍公仔設計台</h1>
-            <p>旅團個人化童軍卡通公仔設計平台</p>
-          </div>
-        </div>
-        <div className="header-actions">
-          <button type="button" className="btn" onClick={onExport}>
-            <Icon d={P.download} size={15} /> 匯出 PNG
-          </button>
-          <button type="button" className="btn" onClick={onShare}>
-            <Icon d={P.share} size={15} /> 分享連結
-          </button>
-          <button type="button" className="btn btn-primary" onClick={togglePreview}>
-            <Icon d={P.play} size={15} /> 預覽
-          </button>
-        </div>
-      </header>
-
       <div className="body">
+        {/* ── 最左圖示欄（logo＋面板切換＋匯出分享） ── */}
         <nav className="rail" aria-label="面板切換">
-          {railBtn('parts', P.person, '零件庫')}
-          {railBtn('layers', P.layers, '圖層')}
-          {railBtn('bg', P.palette, '背景')}
+          <span className="rail-logo" title="童軍公仔設計台">
+            <Icon d={P.tent} size={21} strokeWidth={2} />
+          </span>
+          {railViewBtn('parts', P.person, '零件庫')}
+          {railViewBtn('layers', P.layers, '圖層')}
+          {railViewBtn('bg', P.palette, '背景')}
           <button
             type="button"
             className="rail-btn is-disabled"
@@ -435,65 +430,71 @@ export default function App() {
             <Icon d={P.text} />
           </button>
           <span className="rail-spacer" />
-          <span className="rail-foot" title="繁體中文（香港）">
-            <Icon d={P.note} size={16} />
-          </span>
+          <button type="button" className="rail-btn" title="匯出 PNG" aria-label="匯出 PNG" onClick={onExport}>
+            <Icon d={P.download} />
+          </button>
+          <button type="button" className="rail-btn" title="分享連結" aria-label="分享連結" onClick={onShare}>
+            <Icon d={P.share} />
+          </button>
         </nav>
 
-        <aside className="panel-left">
-          {leftView === 'parts' && (
-            <PartsPanel
-              onAdd={(t) => {
-                // 點擊新增 → 放到目前視窗中央，並依數量錯開避免完全疊住
-                const r = stageRef.current?.getBoundingClientRect()
-                const v = viewRef.current
-                const cx = r ? (r.width / 2 - v.x) / v.z - BOARD.w / 2 : 200
-                const cy = r ? (r.height / 2 - v.y) / v.z - BOARD.h / 2 : 150
-                const n = docRef.current.elements.length
-                const off = (n % 5) * 32
-                addAt(t, { x: Math.round((cx + off) / 4) * 4, y: Math.round((cy + off) / 4) * 4 })
-              }}
-            />
-          )}
-          {leftView === 'layers' && (
-            <LayersPanel
-              elements={doc.elements}
-              selectedId={selId}
-              onSelect={select}
-              onToggleHide={(id) =>
-                commit((d) => ({ ...d, elements: d.elements.map((e) => (e.id === id ? { ...e, hidden: !e.hidden } : e)) }))
-              }
-              onToggleLock={(id) =>
-                commit((d) => ({ ...d, elements: d.elements.map((e) => (e.id === id ? { ...e, locked: !e.locked } : e)) }))
-              }
-              onMove={reorder}
-              onDelete={deleteEl}
-            />
-          )}
-          {leftView === 'bg' && (
-            <BgPanel bg={doc.bg} onBg={(id) => commit((d) => ({ ...d, bg: id }))} />
-          )}
-        </aside>
+        {/* ── 左面板 ── */}
+        {leftOpen && (
+          <aside className="panel-left">
+            {leftView === 'parts' && (
+              <PartsPanel
+                onAdd={(t) => {
+                  // 點擊新增 → 放到目前視窗中央，並依數量錯開避免完全疊住
+                  const r = stageRef.current?.getBoundingClientRect()
+                  const v = viewRef.current
+                  const cx = r ? (r.width / 2 - v.x) / v.z - BOARD.w / 2 : 200
+                  const cy = r ? (r.height / 2 - v.y) / v.z - BOARD.h / 2 : 150
+                  const n = docRef.current.elements.length
+                  const off = (n % 5) * 32
+                  addAt(t, { x: Math.round((cx + off) / 4) * 4, y: Math.round((cy + off) / 4) * 4 })
+                }}
+              />
+            )}
+            {leftView === 'layers' && (
+              <LayersPanel
+                elements={doc.elements}
+                selectedId={selId}
+                onSelect={select}
+                onToggleHide={(id) =>
+                  commit((d) => ({ ...d, elements: d.elements.map((e) => (e.id === id ? { ...e, hidden: !e.hidden } : e)) }))
+                }
+                onToggleLock={(id) =>
+                  commit((d) => ({ ...d, elements: d.elements.map((e) => (e.id === id ? { ...e, locked: !e.locked } : e)) }))
+                }
+                onMove={reorder}
+                onDelete={deleteEl}
+              />
+            )}
+            {leftView === 'bg' && <BgPanel bg={doc.bg} onBg={(id) => commit((d) => ({ ...d, bg: id }))} />}
+          </aside>
+        )}
 
         <CanvasStage api={stageApi} />
 
-        <aside className="panel-right">
-          <InspectorPanel
-            sel={sel}
-            elementCount={doc.elements.length}
-            beginInteract={() => docRef.current}
-            endInteract={(snap) => commitSnapshot(snap)}
-            onDesignChange={(key, value) =>
-              mutateSel((e) => ({ ...e, design: { ...e.design, [key]: value } }))
-            }
-            onName={(name) => mutateSel((e) => ({ ...e, name }), false)}
-            onNote={(note) => mutateSel((e) => ({ ...e, note }), false)}
-            onRandom={() => mutateSel((e) => ({ ...e, design: randomDesign() }))}
-            onReset={() => mutateSel((e) => ({ ...e, design: { ...DEFAULT_DESIGN } }))}
-            onDuplicate={duplicateSel}
-            onDelete={() => selId && deleteEl(selId)}
-          />
-        </aside>
+        {/* ── 右面板 ── */}
+        {rightOpen && (
+          <aside className="panel-right">
+            <InspectorPanel
+              sel={sel}
+              elementCount={doc.elements.length}
+              beginInteract={() => docRef.current}
+              endInteract={(snap) => commitSnapshot(snap)}
+              onDesignChange={(key, value) => mutateSel((e) => ({ ...e, design: { ...e.design, [key]: value } }))}
+              onName={(name) => mutateSel((e) => ({ ...e, name }), false)}
+              onNote={(note) => mutateSel((e) => ({ ...e, note }), false)}
+              onRandom={() => mutateSel((e) => ({ ...e, design: randomDesign() }))}
+              onReset={() => mutateSel((e) => ({ ...e, design: { ...DEFAULT_DESIGN } }))}
+              onDuplicate={duplicateSel}
+              onDelete={() => selId && deleteEl(selId)}
+              onCollapse={() => setRightOpen(false)}
+            />
+          </aside>
+        )}
       </div>
 
       {toast && <div className="toast">{toast}</div>}

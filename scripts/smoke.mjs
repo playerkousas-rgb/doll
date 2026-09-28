@@ -76,11 +76,34 @@ await page.waitForTimeout(250)
 const bg = await page.evaluate(() => JSON.parse(localStorage.getItem('doll.canvas.v1')).bg)
 check('切換畫布底色', bg === 'sky', `bg=${bg}`)
 
-// 7. 圖層面板刪除 → 1 隻（上面重做後有 2 隻）
+// 6.5 面板收合與恢復（參考專案的 ⊟/⊞ 設計）
+await page.getByRole('button', { name: '收合右側面板' }).click()
+await page.waitForTimeout(200)
+check('收合右面板', await page.locator('.restore-right').isVisible())
+await page.locator('.restore-right').click()
+await page.waitForTimeout(200)
+check('恢復右面板', await page.locator('.inspector').isVisible())
+
+await page.getByRole('button', { name: '圖層' }).click()
+await page.waitForTimeout(150)
 await page.getByRole('button', { name: '圖層' }).click()
 await page.waitForTimeout(200)
+check('再點同個圖示收合左面板', await page.locator('.restore-left').isVisible())
+await page.locator('.restore-left').click()
+await page.waitForTimeout(200)
+check('恢復左面板', await page.locator('.panel-left').isVisible())
+
+// 7. 圖層面板刪除 → 1 隻（上面重做後有 2 隻）
+// 先等 restore 點擊真的生效；面板若仍不見才點圖示（避免 race 把面板又收合）
+await page
+  .locator('.layer-list')
+  .waitFor({ state: 'visible', timeout: 3000 })
+  .catch(async () => {
+    await page.getByRole('button', { name: '圖層' }).click()
+    await page.locator('.layer-list').waitFor({ state: 'visible', timeout: 3000 })
+  })
 const delBtns = page.locator('.layer-row .icon-btn[title="刪除"]')
-await delBtns.first().click()
+await delBtns.first().click({ timeout: 5000 })
 await page.waitForTimeout(250)
 check('圖層刪除公仔 → 1 隻', (await countOf()) === 1, `count=${await countOf()}`)
 

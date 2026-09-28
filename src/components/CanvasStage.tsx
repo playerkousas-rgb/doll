@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { DollElement, Doc } from '../lib/canvas'
-import { BOARD, docBounds } from '../lib/canvas'
+import { BOARD, bgColor, docBounds } from '../lib/canvas'
 import Character from '../character/Character'
 import { Icon, P } from './Icons'
 import type { DollTemplate } from './PartsPanel'
@@ -21,6 +21,8 @@ export interface StageApi {
   preview: boolean
   canUndo: boolean
   canRedo: boolean
+  leftOpen: boolean
+  rightOpen: boolean
   stageRef: RefObject<HTMLDivElement | null>
   setTool: (t: 'select' | 'hand') => void
   setView: Dispatch<SetStateAction<View>>
@@ -35,6 +37,8 @@ export interface StageApi {
   fit: () => void
   zoomBy: (factor: number) => void
   togglePreview: () => void
+  onOpenLeft: () => void
+  onOpenRight: () => void
 }
 
 const snap4 = (v: number) => Math.round(v / 4) * 4
@@ -162,20 +166,13 @@ export default function CanvasStage({ api }: { api: StageApi }) {
     api.addAt(template, world)
   }
 
-  const sel = doc.elements.find((e) => e.id === selId)
   const cursor = tool === 'hand' ? 'grab' : 'default'
 
   return (
     <div
       ref={stageRef}
       className={`stage ${preview ? 'is-preview' : ''}`}
-      style={{
-        backgroundColor: preview ? '#e8ece9' : undefined,
-        backgroundImage: preview ? undefined : 'radial-gradient(circle, rgba(36,48,38,0.14) 1px, transparent 1px)',
-        backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
-        backgroundPosition: `${view.x}px ${view.y}px`,
-        cursor,
-      }}
+      style={{ backgroundColor: '#edeff1', cursor }}
       onPointerDown={onStagePointerDown}
       onDragOver={(e) => {
         if (!preview && e.dataTransfer.types.includes('application/x-doll')) {
@@ -200,6 +197,7 @@ export default function CanvasStage({ api }: { api: StageApi }) {
               )}
               <div
                 className={`board-card ${isSel ? 'is-sel' : ''} ${el.locked ? 'is-locked' : ''}`}
+                style={{ background: bgColor(doc) }}
                 onPointerDown={(e) => onBoardPointerDown(e, el)}
               >
                 <Character design={el.design} svgId={`doll-${el.id}`} />
@@ -269,12 +267,21 @@ export default function CanvasStage({ api }: { api: StageApi }) {
             </button>
           </div>
 
-          {/* 選取物件的小提示（置於左下，避開縮放列） */}
-          {sel && tool === 'select' && (
-            <div className="float-pill sel-hint">
-              <Icon d={P.person} size={14} />
-              {sel.name} · 拖曳移動 · 內容在右側「屬性」調整
-            </div>
+          {/* 面板收合時的恢復按鈕（參考專案的 ⊟/⊞ 設計） */}
+          {!api.leftOpen && (
+            <button type="button" className="float-pill restore-pill restore-left" title="展開零件庫" onClick={api.onOpenLeft}>
+              <Icon d={P.panelLeft} size={17} />
+            </button>
+          )}
+          {!api.rightOpen && (
+            <button
+              type="button"
+              className="float-pill restore-pill restore-right"
+              title="展開屬性面板"
+              onClick={api.onOpenRight}
+            >
+              <Icon d={P.panelRight} size={17} />
+            </button>
           )}
         </>
       )}

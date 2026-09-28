@@ -6,7 +6,7 @@ interface Props {
   onBg: (id: string) => void
 }
 
-/** 左側：畫布背景（裝飾零件之後才登場） */
+/** 左側：公仔底色（畫布保持素面，底色套用在公仔板上；裝飾零件之後才登場） */
 export default function BgPanel({ bg, onBg }: Props) {
   return (
     <div className="bg-panel">
@@ -16,8 +16,10 @@ export default function BgPanel({ bg, onBg }: Props) {
 
       <section className="parts-group">
         <h3 className="parts-group-title">
-          <Icon d={P.palette} size={15} />
-          畫布底色
+          <span className="group-static">
+            <Icon d={P.palette} size={15} />
+            <span>公仔底色</span>
+          </span>
         </h3>
         <div className="bg-grid">
           {BG_PRESETS.map((b) => (
@@ -37,18 +39,19 @@ export default function BgPanel({ bg, onBg }: Props) {
 
       <section className="parts-group">
         <h3 className="parts-group-title">
-          <Icon d={P.tent} size={15} />
-          裝飾
-          <span className="parts-group-hint is-soon">之後登場</span>
+          <span className="group-static">
+            <Icon d={P.tent} size={15} />
+            <span>裝飾</span>
+            <span className="soon-hint">之後登場</span>
+          </span>
         </h3>
         <div className="parts-grid">
           {['帳篷', '旗幟', '星星'].map((label) => (
             <span key={label} className="part-tile is-soon" title="裝飾零件稍後登場">
               <span className="part-art soon-art">
-                <Icon d={P.tent} size={30} />
+                <Icon d={P.tent} size={28} />
               </span>
               <span className="part-label">{label}</span>
-              <span className="soon-badge">稍後</span>
             </span>
           ))}
         </div>

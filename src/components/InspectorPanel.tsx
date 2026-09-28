@@ -21,6 +21,7 @@ interface Props {
   onReset: () => void
   onDuplicate: () => void
   onDelete: () => void
+  onCollapse: () => void
 }
 
 /** 右側：屬性 / 提示詞 */
@@ -36,6 +37,7 @@ export default function InspectorPanel({
   onReset,
   onDuplicate,
   onDelete,
+  onCollapse,
 }: Props) {
   const [tab, setTab] = useState<Tab>('props')
   const [prompt, setPrompt] = useState('')
@@ -65,28 +67,39 @@ export default function InspectorPanel({
 
   return (
     <div className="inspector">
-      <div className="inspector-tabs" role="tablist">
+      <div className="inspector-tabs">
+        <div className="inspector-segmented" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'props'}
+            aria-label="屬性"
+            title="屬性"
+            className={`inspector-tab ${tab === 'props' ? 'is-active' : ''}`}
+            onClick={() => setTab('props')}
+          >
+            <Icon d={P.sliders} size={18} />
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'prompt'}
+            aria-label="提示詞"
+            title="提示詞"
+            className={`inspector-tab ${tab === 'prompt' ? 'is-active' : ''}`}
+            onClick={() => setTab('prompt')}
+          >
+            <Icon d={P.spark} size={18} />
+          </button>
+        </div>
         <button
           type="button"
-          role="tab"
-          aria-selected={tab === 'props'}
-          className={`inspector-tab ${tab === 'props' ? 'is-active' : ''}`}
-          onClick={() => setTab('props')}
-          title="屬性"
+          className="icon-btn inspector-collapse"
+          title="收合面板"
+          aria-label="收合右側面板"
+          onClick={onCollapse}
         >
-          <Icon d={P.sliders} size={17} />
-          屬性
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'prompt'}
-          className={`inspector-tab ${tab === 'prompt' ? 'is-active' : ''}`}
-          onClick={() => setTab('prompt')}
-          title="提示詞"
-        >
-          <Icon d={P.spark} size={17} />
-          提示詞
+          <Icon d={P.panelRight} size={17} />
         </button>
       </div>
 

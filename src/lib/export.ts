@@ -81,7 +81,8 @@ export async function exportCanvasPng(
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
 
-  ctx.fillStyle = bg
+  // 畫布底：素面中性灰（參考專案的畫布色）
+  ctx.fillStyle = '#edeff1'
   ctx.fillRect(0, 0, W, H)
 
   const dolls = doc.elements.filter((e) => !e.hidden)
@@ -89,13 +90,13 @@ export async function exportCanvasPng(
     const bx = (el.x - bounds.x + pad) * scale
     const by = (el.y - bounds.y + pad) * scale
 
-    // 卡片底
+    // 卡片底（公仔底色）
     ctx.save()
     ctx.shadowColor = 'rgba(36, 48, 38, 0.14)'
     ctx.shadowBlur = 18 * scale
     ctx.shadowOffsetY = 8 * scale
     roundRect(ctx, bx, by, BOARD.w * scale, BOARD.h * scale, 20 * scale)
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = bg
     ctx.fill()
     ctx.restore()
 
