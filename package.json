@@ -1,0 +1,32 @@
+{
+  "name": "doll",
+  "private": true,
+  "version": "0.1.0",
+  "description": "旅團個人化童軍卡通公仔設計工具：像 Online Game 角色創建器一樣組裝 Q 版童軍公仔（純前端）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "sheet": "vite build --ssr scripts/render-preview.tsx --outDir .preview-build && node .preview-build/render-preview.js",
+    "shot": "node scripts/shot.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@expo-google-fonts/noto-sans-tc": "^0.4.5",
+    "@resvg/resvg-js": "^2.6.2",
+    "@sparticuz/chromium": "^143.0.4",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "playwright": "^1.58.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}
