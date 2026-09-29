@@ -1,5 +1,6 @@
 import { BG_PRESETS } from '../lib/canvas'
-import { Icon, P } from './Icons'
+import { Icon } from './Icons'
+import { P } from './iconPaths'
 
 interface Props {
   bg: string

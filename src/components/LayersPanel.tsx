@@ -1,5 +1,6 @@
 import type { DollElement } from '../lib/canvas'
-import { Icon, P } from './Icons'
+import { Icon } from './Icons'
+import { P } from './iconPaths'
 
 interface Props {
   elements: DollElement[]

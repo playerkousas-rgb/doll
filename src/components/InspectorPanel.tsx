@@ -1,20 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Design } from '../types'
+import Character from '../character/Character'
+import { FACES, HAIRS, getOpt } from '../data/options'
+import { CUT_LABELS, uniformById, type UniformCut } from '../data/uniforms'
+import type { JointKey, PosePresetId } from '../character/pose'
 import type { DollElement, Doc } from '../lib/canvas'
 import { buildPrompt } from '../lib/prompt'
 import { copyText } from '../lib/export'
-import { Icon, P } from './Icons'
+import { Icon } from './Icons'
+import { P } from './iconPaths'
 import OptionsPanel from './OptionsPanel'
+import type { DesignSection } from './OptionsPanel'
+import PosePanel from './PosePanel'
 
-type Tab = 'props' | 'prompt'
+export type InspectorTab = 'props' | 'pose' | 'prompt'
 
 interface Props {
   sel: DollElement | null
   elementCount: number
-  /** 互動期間的快照（輸入框 focus/blur 用，避免逐字佔滿復原紀錄） */
+  tab: InspectorTab
+  onTab: (tab: InspectorTab) => void
+  sectionId: DesignSection
+  onSection: (section: DesignSection) => void
+  /** 互動期間的快照（輸入框／滑桿 focus/blur 用，避免逐字佔滿復原紀錄） */
   beginInteract: () => Doc
   endInteract: (snap: Doc) => void
   onDesignChange: (key: keyof Design, value: string) => void
+  onPosePreset: (id: PosePresetId) => void
+  onPoseJoint: (key: JointKey, angle: number, discrete: boolean) => void
+  onMirrorPose: () => void
+  onResetPose: () => void
   onName: (name: string) => void
   onNote: (note: string) => void
   onRandom: () => void
@@ -24,13 +39,46 @@ interface Props {
   onCollapse: () => void
 }
 
-/** 右側：屬性 / 提示詞 */
+function HeadPortrait({ design }: { design: Design }) {
+  const face = getOpt(FACES, design.face).label
+  const hair = getOpt(HAIRS, design.hair).label
+  return <div className="portrait-card" aria-label="目前的臉與頭髮特寫">
+    <div className="portrait-meta"><span>FACE & HAIR STUDIO</span><span>01 / 04</span></div>
+    <div className="portrait-art"><Character design={design} viewBox="65 -16 230 249" showHat={false} /></div>
+    <div className="portrait-caption">
+      <strong>挑好臉與頭髮</strong>
+      <span>{face} · {hair}（暫不戴帽）</span>
+    </div>
+  </div>
+}
+
+function UniformPortrait({ design }: { design: Design }) {
+  const uniform = uniformById(design.uniform)
+  const cut = CUT_LABELS[design.uniformCut as UniformCut] ?? '短褲'
+  return <div className="portrait-card uniform-portrait" aria-label="目前的制服全身預覽">
+    <div className="portrait-meta"><span>YOUTH UNIFORM STUDIO</span><span>02 / 04</span></div>
+    <div className="portrait-art"><Character design={design} /></div>
+    <div className="portrait-caption">
+      <strong>{uniform.label}</strong><span>{cut} · {design.uniformHat === 'on' ? '戴帽' : '不戴帽'}</span>
+    </div>
+  </div>
+}
+
+/** 右側：臉與頭髮為主、姿勢為後續延伸。 */
 export default function InspectorPanel({
   sel,
   elementCount,
+  tab,
+  onTab,
+  sectionId,
+  onSection,
   beginInteract,
   endInteract,
   onDesignChange,
+  onPosePreset,
+  onPoseJoint,
+  onMirrorPose,
+  onResetPose,
   onName,
   onNote,
   onRandom,
@@ -39,20 +87,12 @@ export default function InspectorPanel({
   onDelete,
   onCollapse,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('props')
-  const [prompt, setPrompt] = useState('')
-  const [edited, setEdited] = useState(false)
+  const [manualPrompt, setManualPrompt] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const fresh = sel ? buildPrompt(sel.design, sel.note) : ''
-  useEffect(() => {
-    if (!edited) setPrompt(fresh)
-  }, [fresh, edited])
-
-  // 換選取物件時，提示詞回到自動產生
-  useEffect(() => {
-    setEdited(false)
-  }, [sel?.id])
+  // 未手動修改時直接由目前造型／姿勢衍生；換選取角色時由 key 重建編輯器。
+  const fresh = sel ? buildPrompt(sel.design, sel.pose, sel.note) : ''
+  const prompt = manualPrompt ?? fresh
 
   const flashCopy = async (text: string) => {
     const ok = await copyText(text)
@@ -68,29 +108,23 @@ export default function InspectorPanel({
   return (
     <div className="inspector">
       <div className="inspector-tabs">
-        <div className="inspector-segmented" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'props'}
-            aria-label="屬性"
-            title="屬性"
-            className={`inspector-tab ${tab === 'props' ? 'is-active' : ''}`}
-            onClick={() => setTab('props')}
-          >
-            <Icon d={P.sliders} size={18} />
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'prompt'}
-            aria-label="提示詞"
-            title="提示詞"
-            className={`inspector-tab ${tab === 'prompt' ? 'is-active' : ''}`}
-            onClick={() => setTab('prompt')}
-          >
-            <Icon d={P.spark} size={18} />
-          </button>
+        <div className="inspector-segmented" role="tablist" aria-label="角色編輯分頁">
+          {([
+            { id: 'props', label: '臉與髮', icon: P.sliders },
+            { id: 'pose', label: '姿勢', icon: P.pose },
+            { id: 'prompt', label: '提示詞', icon: P.spark },
+          ] as const).map(({ id, label, icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              className={`inspector-tab ${tab === id ? 'is-active' : ''}`}
+              onClick={() => onTab(id)}
+            >
+              <Icon d={icon} size={16} /> {label}
+            </button>
+          ))}
         </div>
         <button
           type="button"
@@ -109,10 +143,21 @@ export default function InspectorPanel({
           <p>
             點一下畫布上的公仔
             <br />
-            就能在這裡調整它的造型
+            就能在這裡調整造型與姿勢
           </p>
           <p className="muted">畫布上共有 {elementCount} 隻公仔</p>
         </div>
+      ) : tab === 'pose' ? (
+        <PosePanel
+          key={sel.id}
+          sel={sel}
+          beginInteract={beginInteract}
+          endInteract={endInteract}
+          onPreset={onPosePreset}
+          onJoint={onPoseJoint}
+          onMirror={onMirrorPose}
+          onReset={onResetPose}
+        />
       ) : tab === 'props' ? (
         <div className="inspector-body">
           <div className="name-row">
@@ -134,7 +179,9 @@ export default function InspectorPanel({
             />
           </div>
 
-          <OptionsPanel design={sel.design} onChange={onDesignChange} />
+          {sectionId === 'uniform' || sectionId === 'body'
+            ? <UniformPortrait design={sel.design} /> : <HeadPortrait design={sel.design} />}
+          <OptionsPanel design={sel.design} sectionId={sectionId} onSection={onSection} onChange={onDesignChange} />
 
           <div className="inspector-actions">
             <button type="button" className="btn" onClick={onRandom}>
@@ -179,10 +226,7 @@ export default function InspectorPanel({
           <textarea
             className="prompt-box"
             value={prompt}
-            onChange={(e) => {
-              setPrompt(e.target.value)
-              setEdited(true)
-            }}
+            onChange={(e) => setManualPrompt(e.target.value)}
             rows={11}
           />
           <div className="btn-row">
@@ -193,10 +237,7 @@ export default function InspectorPanel({
             <button
               type="button"
               className="btn btn-ghost"
-              onClick={() => {
-                setEdited(false)
-                setPrompt(buildPrompt(sel.design, sel.note))
-              }}
+              onClick={() => setManualPrompt(null)}
             >
               重新產生
             </button>

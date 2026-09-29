@@ -30,19 +30,42 @@ const open = async () => {
 await open()
 await page.screenshot({ path: 'shot-editor.png' })
 
-// 2. 左側圖層面板
+// 2. 獨立眼睛與眉型選項（頭部特寫仍留在上方）
+await page.locator('.option-sections .section').filter({ has: page.getByRole('heading', { name: '眼睛' }) }).scrollIntoViewIfNeeded()
+await page.screenshot({ path: 'shot-face-options.png' })
+
+// 3. 頭髮與瀏海工作台
+await open()
+await page.getByRole('tab', { name: '頭髮' }).click()
+await page.waitForTimeout(250)
+await page.screenshot({ path: 'shot-hair.png' })
+
+// 4. 青少年制服分類與全身特寫
+await open()
+await page.getByRole('tab', { name: '制服' }).click()
+await page.waitForTimeout(250)
+await page.screenshot({ path: 'shot-uniform.png' })
+
+// 5. 左側圖層面板
 await open()
 await page.getByRole('button', { name: '圖層', exact: true }).click()
 await page.waitForTimeout(300)
 await page.screenshot({ path: 'shot-layers.png' })
 
-// 3. 右側提示詞分頁（加一隻公仔再切）
+// 6. 右側提示詞分頁
 await open()
 await page.getByRole('tab', { name: '提示詞' }).click()
 await page.waitForTimeout(300)
 await page.screenshot({ path: 'shot-prompt.png' })
 
-// 4. 預覽模式（按 P）
+// 7. 姿勢工作台與骨架
+await open()
+await page.getByRole('tab', { name: '姿勢' }).click()
+await page.locator('.pose-preset').filter({ hasText: '童軍敬禮' }).click()
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'shot-pose-editor.png' })
+
+// 8. 預覽模式（按 P）
 await open()
 await page.keyboard.press('p')
 await page.waitForTimeout(600)
