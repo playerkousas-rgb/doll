@@ -1,5 +1,7 @@
 import type { Design } from '../types'
 import { DEFAULT_DESIGN } from '../types'
+import type { Pose } from '../character/pose'
+import { normalizePose, poseFromPreset } from '../character/pose'
 import { normalize } from './storage'
 
 /** 畫布上的元素（目前只有公仔板，之後會有文字、裝飾） */
@@ -11,6 +13,8 @@ export interface DollElement {
   x: number
   y: number
   design: Design
+  /** 角色骨架關節（舊文件缺漏時會回退至自然站立） */
+  pose: Pose
   /** 使用者備註（會寫進提示詞） */
   note: string
   hidden?: boolean
@@ -51,7 +55,7 @@ export function bgColor(doc: Doc): string {
 export const uid = (): string => Math.random().toString(36).slice(2, 10)
 
 export function newDoll(design: Design = DEFAULT_DESIGN, name = '', x = 0, y = 0): DollElement {
-  return { id: uid(), type: 'doll', name, x, y, design: { ...design }, note: '' }
+  return { id: uid(), type: 'doll', name, x, y, design: { ...design }, pose: poseFromPreset('stand'), note: '' }
 }
 
 /** 自動命名：公仔1、公仔2…… */
@@ -126,6 +130,7 @@ export function normalizeDoc(raw: unknown): Doc {
           x: Number.isFinite(e.x) ? Number(e.x) : 0,
           y: Number.isFinite(e.y) ? Number(e.y) : 0,
           design: normalize(e.design),
+          pose: normalizePose(e.pose),
           note: typeof e.note === 'string' ? e.note : '',
           hidden: !!e.hidden,
           locked: !!e.locked,

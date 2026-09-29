@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Design } from './types'
 import { DEFAULT_DESIGN } from './types'
-import { BODIES, EXPRS, FACES, HAIRS, HAIR_COLORS, SKINS } from './data/options'
-import CanvasStage, { fitView } from './components/CanvasStage'
-import type { StageApi, View } from './components/CanvasStage'
+import { BANGS, BODIES, BROWS, CHEEKS, EYES, FACES, HAIRS, HAIR_COLORS, MOUTHS, SKINS } from './data/options'
+import { UNIFORMS, defaultCut, selectUniform } from './data/uniforms'
+import type { JointKey, PosePresetId } from './character/pose'
+import { mirrorPose, poseFromPreset, setPoseJoint } from './character/pose'
+import CanvasStage from './components/CanvasStage'
+import type { StageApi } from './components/CanvasStage'
+import type { View } from './lib/view'
+import { fitView } from './lib/view'
 import PartsPanel from './components/PartsPanel'
-import type { DollTemplate } from './components/PartsPanel'
+import type { DollTemplate } from './data/templates'
 import LayersPanel from './components/LayersPanel'
 import BgPanel from './components/BgPanel'
 import InspectorPanel from './components/InspectorPanel'
-import { Icon, P } from './components/Icons'
+import type { InspectorTab } from './components/InspectorPanel'
+import type { DesignSection } from './components/OptionsPanel'
+import { Icon } from './components/Icons'
+import { P } from './components/iconPaths'
 import type { Doc, DollElement } from './lib/canvas'
 import {
   BOARD,
@@ -30,13 +38,23 @@ type LeftView = 'parts' | 'layers' | 'bg'
 const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
 
 function randomDesign(): Design {
+  const hair = pick(HAIRS).id
+  const uniform = pick(UNIFORMS.filter((u) => u.id !== 'basic')).id
   return {
+    ...DEFAULT_DESIGN,
     skin: pick(SKINS).id,
     face: pick(FACES).id,
-    hair: pick(HAIRS).id,
+    hair,
+    bangs: hair === 'bald' ? 'auto' : pick(BANGS).id,
     hairColor: pick(HAIR_COLORS).id,
-    eyes: pick(EXPRS).id,
+    eyes: pick(EYES).id,
+    brows: pick(BROWS).id,
+    mouth: pick(MOUTHS).id,
+    cheeks: pick(CHEEKS).id,
     body: pick(BODIES).id,
+    uniform,
+    uniformCut: defaultCut(uniform),
+    uniformHat: uniform === 'grasshopper' ? 'off' : 'on',
   }
 }
 
@@ -60,6 +78,8 @@ export default function App() {
   const [leftView, setLeftView] = useState<LeftView>('parts')
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('props')
+  const [designSection, setDesignSection] = useState<DesignSection>('face')
   const [preview, setPreview] = useState(false)
   const [histVer, setHistVer] = useState(0)
   const [toast, setToast] = useState('')
@@ -185,15 +205,61 @@ export default function App() {
   const mutateSel = useCallback(
     (fn: (el: DollElement) => DollElement, discrete = true) => {
       const id = selId
-      const apply = (d: Doc): Doc => ({
-        ...d,
-        elements: d.elements.map((e) => (e.id === id ? fn(e) : e)),
-      })
+      if (!id) return
+      const apply = (d: Doc): Doc => {
+        let changed = false
+        const elements = d.elements.map((e) => {
+          if (e.id !== id) return e
+          const next = fn(e)
+          if (next !== e) changed = true
+          return next
+        })
+        return changed ? { ...d, elements } : d
+      }
       if (discrete) commit(apply)
       else setDoc(apply)
     },
     [selId, commit],
   )
+
+  /** 姿勢範本與畫布骨架、滑桿共用同一份 Pose；拖曳時在放開後才入歷史。 */
+  const changeJoint = useCallback((id: string, key: JointKey, angle: number, discrete: boolean) => {
+    const apply = (d: Doc): Doc => {
+      let changed = false
+      const elements = d.elements.map((e) => {
+        if (e.id !== id) return e
+        const pose = setPoseJoint(e.pose, key, angle)
+        if (pose === e.pose) return e
+        changed = true
+        return { ...e, pose }
+      })
+      return changed ? { ...d, elements } : d
+    }
+    if (discrete) commit(apply)
+    else setDoc(apply)
+  }, [commit])
+
+  const applyPosePreset = useCallback((id: PosePresetId) => {
+    if (!selId) {
+      showToast('請先點選畫布上的一隻公仔')
+      return
+    }
+    mutateSel((e) => e.pose.preset === id ? e : { ...e, pose: poseFromPreset(id) })
+    setInspectorTab('pose')
+    setRightOpen(true)
+    setTool('select')
+  }, [selId, mutateSel, showToast])
+
+  const applyUniform = useCallback((id: string) => {
+    if (!selId) {
+      showToast('請先點選畫布上的一隻公仔')
+      return
+    }
+    mutateSel((e) => ({ ...e, design: selectUniform(e.design, id) }))
+    setInspectorTab('props')
+    setDesignSection('uniform')
+    setRightOpen(true)
+  }, [selId, mutateSel, showToast])
 
   const deleteEl = useCallback(
     (id: string) => {
@@ -219,6 +285,7 @@ export default function App() {
       y: el.y + 24,
       name: nextName(docRef.current.elements),
       design: { ...el.design },
+      pose: { preset: el.pose.preset, joints: { ...el.pose.joints } },
     }
     commit((d) => ({ ...d, elements: [...d.elements, copy] }))
     setSelId(copy.id)
@@ -362,6 +429,7 @@ export default function App() {
     tool,
     view,
     preview,
+    poseMode: rightOpen && inspectorTab === 'pose',
     canUndo: past.current.length > 0,
     canRedo: future.current.length > 0,
     stageRef,
@@ -371,6 +439,12 @@ export default function App() {
     moveEl,
     snapshot: () => docRef.current,
     commitSnapshot,
+    onJoint: changeJoint,
+    onPoseMode: () => {
+      setInspectorTab(rightOpen && inspectorTab === 'pose' ? 'props' : 'pose')
+      setRightOpen(true)
+      setTool('select')
+    },
     addAt,
     addCenter,
     undo,
@@ -411,7 +485,7 @@ export default function App() {
 
   return (
     <div className={`app ${preview ? 'is-preview' : ''}`}>
-      <div className="body">
+      <div className={`body ${inspectorTab === 'pose' ? 'body--pose' : ''}`}>
         {/* ── 最左圖示欄（logo＋面板切換＋匯出分享） ── */}
         <nav className="rail" aria-label="面板切換">
           <span className="rail-logo" title="童軍公仔設計台">
@@ -443,6 +517,10 @@ export default function App() {
           <aside className="panel-left">
             {leftView === 'parts' && (
               <PartsPanel
+                selectedDesign={sel?.design ?? null}
+                selectedPose={sel?.pose.preset ?? null}
+                onPose={applyPosePreset}
+                onUniform={applyUniform}
                 onAdd={(t) => {
                   // 點擊新增 → 放到目前視窗中央，並依數量錯開避免完全疊住
                   const r = stageRef.current?.getBoundingClientRect()
@@ -480,11 +558,22 @@ export default function App() {
         {rightOpen && (
           <aside className="panel-right">
             <InspectorPanel
+              key={sel?.id ?? 'empty'}
               sel={sel}
               elementCount={doc.elements.length}
+              tab={inspectorTab}
+              onTab={(tab) => { setInspectorTab(tab); if (tab === 'pose') setTool('select') }}
+              sectionId={designSection}
+              onSection={setDesignSection}
               beginInteract={() => docRef.current}
               endInteract={(snap) => commitSnapshot(snap)}
-              onDesignChange={(key, value) => mutateSel((e) => ({ ...e, design: { ...e.design, [key]: value } }))}
+              onDesignChange={(key, value) => mutateSel((e) => ({
+                ...e, design: key === 'uniform' ? selectUniform(e.design, value) : { ...e.design, [key]: value },
+              }))}
+              onPosePreset={applyPosePreset}
+              onPoseJoint={(key, angle, discrete) => { if (selId) changeJoint(selId, key, angle, discrete) }}
+              onMirrorPose={() => mutateSel((e) => ({ ...e, pose: mirrorPose(e.pose) }))}
+              onResetPose={() => applyPosePreset('stand')}
               onName={(name) => mutateSel((e) => ({ ...e, name }), false)}
               onNote={(note) => mutateSel((e) => ({ ...e, note }), false)}
               onRandom={() => mutateSel((e) => ({ ...e, design: randomDesign() }))}

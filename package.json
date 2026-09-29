@@ -11,7 +11,11 @@
     "preview": "vite preview",
     "sheet": "vite build --ssr scripts/render-preview.tsx --outDir .preview-build && node .preview-build/render-preview.js",
     "shot": "node scripts/shot.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "pose:smoke": "node scripts/pose-smoke.mjs",
+    "face:smoke": "node scripts/face-hair-smoke.mjs",
+    "uniform:smoke": "node scripts/uniform-smoke.mjs",
+    "line:study": "vite build --ssr scripts/line-study.tsx --outDir .preview-build && node .preview-build/line-study.js"
   },
   "dependencies": {
     "react": "^19.2.8",

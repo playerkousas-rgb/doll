@@ -1,5 +1,7 @@
-import type { Design } from '../types'
+import type { Design, Option } from '../types'
 import { DEFAULT_DESIGN } from '../types'
+import { BANGS, BODIES, BROWS, CHEEKS, EYES, FACES, HAIRS, HAIR_COLORS, MOUTHS, SKINS } from '../data/options'
+import { UNIFORMS, UNIFORM_HATS, NECKWEAR, allowedCuts, defaultCut, uniformById, type UniformCut } from '../data/uniforms'
 
 const CURRENT_KEY = 'doll.current.v1'
 const DESIGNS_KEY = 'doll.designs.v1'
@@ -52,15 +54,38 @@ export function persistDesigns(list: SavedDesign[]): void {
   }
 }
 
-/** 補上缺漏欄位，確保舊存檔不會讓畫面當掉 */
+const valid = (list: Option[], id: unknown, fallback: string) =>
+  typeof id === 'string' && list.some((o) => o.id === id) ? id : fallback
+
+const validHex = (value: unknown, fallback: string) =>
+  typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback
+
+/** 補上臉部及制服欄位；沒有 uniform 的舊檔必須維持原有米白基礎衣物。 */
 export function normalize(raw: unknown): Design {
   const d = (raw ?? {}) as Partial<Design>
+  const eyes = valid(EYES, d.eyes, DEFAULT_DESIGN.eyes)
+  const oldMouth = eyes === 'smile' ? 'grin' : eyes === 'cool' ? 'calm' : DEFAULT_DESIGN.mouth
+  const uniform = d.uniform === undefined ? 'basic' : valid(UNIFORMS, d.uniform, DEFAULT_DESIGN.uniform)
+  const uniformCut = typeof d.uniformCut === 'string' && allowedCuts(uniform).includes(d.uniformCut as UniformCut)
+    ? d.uniformCut : defaultCut(uniform)
   return {
-    skin: typeof d.skin === 'string' ? d.skin : DEFAULT_DESIGN.skin,
-    face: typeof d.face === 'string' ? d.face : DEFAULT_DESIGN.face,
-    hair: typeof d.hair === 'string' ? d.hair : DEFAULT_DESIGN.hair,
-    hairColor: typeof d.hairColor === 'string' ? d.hairColor : DEFAULT_DESIGN.hairColor,
-    eyes: typeof d.eyes === 'string' ? d.eyes : DEFAULT_DESIGN.eyes,
-    body: typeof d.body === 'string' ? d.body : DEFAULT_DESIGN.body,
+    skin: valid(SKINS, d.skin, DEFAULT_DESIGN.skin),
+    face: valid(FACES, d.face, DEFAULT_DESIGN.face),
+    hair: valid(HAIRS, d.hair, DEFAULT_DESIGN.hair),
+    bangs: valid(BANGS, d.bangs, DEFAULT_DESIGN.bangs),
+    hairColor: valid(HAIR_COLORS, d.hairColor, DEFAULT_DESIGN.hairColor),
+    eyes,
+    brows: valid(BROWS, d.brows, DEFAULT_DESIGN.brows),
+    mouth: valid(MOUTHS, d.mouth, oldMouth),
+    cheeks: valid(CHEEKS, d.cheeks, DEFAULT_DESIGN.cheeks),
+    body: valid(BODIES, d.body, DEFAULT_DESIGN.body),
+    uniform,
+    uniformCut,
+    uniformHat: valid(UNIFORM_HATS, d.uniformHat,
+      uniform === 'basic' || uniform === 'grasshopper' ? 'off' : DEFAULT_DESIGN.uniformHat),
+    uniformNeckwear: ['venture', 'rover'].includes(uniformById(uniform).section)
+      ? valid(NECKWEAR, d.uniformNeckwear, DEFAULT_DESIGN.uniformNeckwear) : 'scarf',
+    scarfColor: validHex(d.scarfColor, DEFAULT_DESIGN.scarfColor),
+    scarfTrim: validHex(d.scarfTrim, DEFAULT_DESIGN.scarfTrim),
   }
 }

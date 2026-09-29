@@ -120,9 +120,13 @@ const shareLink = await page.evaluate(() => {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')}`
 })
+await page.evaluate(() => localStorage.clear())
 await page.goto(shareLink, { waitUntil: 'networkidle' })
+// 同源 #hash 導覽不一定會重建 React，重載模擬分享對象首次開啟。
+await page.reload({ waitUntil: 'networkidle' })
 await page.waitForTimeout(500)
-check('分享連結開啟還原畫布', (await countOf()) === 1, `count=${await countOf()}`)
+const sharedBg = await page.evaluate(() => JSON.parse(localStorage.getItem('doll.canvas.v1')).bg)
+check('分享連結開啟還原畫布', (await countOf()) === 1 && sharedBg === 'sky', `count=${await countOf()}, bg=${sharedBg}`)
 
 await browser.close()
 console.log(results.join('\n'))

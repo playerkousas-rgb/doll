@@ -1,17 +1,17 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { DollElement, Doc } from '../lib/canvas'
-import { BOARD, bgColor, docBounds } from '../lib/canvas'
+import type { JointKey } from '../character/pose'
+import { poseLabel } from '../character/pose'
+import { BOARD, bgColor } from '../lib/canvas'
+import type { View } from '../lib/view'
+import { fitView } from '../lib/view'
 import Character from '../character/Character'
-import { Icon, P } from './Icons'
-import type { DollTemplate } from './PartsPanel'
-import { DOLL_TEMPLATES } from './PartsPanel'
-
-export interface View {
-  x: number
-  y: number
-  z: number
-}
+import RigOverlay from './RigOverlay'
+import { Icon } from './Icons'
+import { P } from './iconPaths'
+import type { DollTemplate } from '../data/templates'
+import { DOLL_TEMPLATES } from '../data/templates'
 
 export interface StageApi {
   doc: Doc
@@ -19,6 +19,7 @@ export interface StageApi {
   tool: 'select' | 'hand'
   view: View
   preview: boolean
+  poseMode: boolean
   canUndo: boolean
   canRedo: boolean
   leftOpen: boolean
@@ -30,6 +31,8 @@ export interface StageApi {
   moveEl: (id: string, x: number, y: number) => void
   snapshot: () => Doc
   commitSnapshot: (snap: Doc) => void
+  onJoint: (id: string, key: JointKey, angle: number, discrete: boolean) => void
+  onPoseMode: () => void
   addAt: (template: DollTemplate, world: { x: number; y: number }) => void
   addCenter: () => void
   undo: () => void
@@ -45,10 +48,41 @@ const snap4 = (v: number) => Math.round(v / 4) * 4
 
 /** 中央：無限畫布（平移、縮放、拖放、浮動工具列） */
 export default function CanvasStage({ api }: { api: StageApi }) {
-  const { doc, selId, tool, view, preview, stageRef, setView } = api
+  const { doc, selId, tool, view, preview, poseMode, stageRef, setView } = api
   const spaceRef = useRef(false)
   const viewRef = useRef(view)
-  viewRef.current = view
+  const snapshotRef = useRef(api.snapshot)
+  useLayoutEffect(() => {
+    viewRef.current = view
+    snapshotRef.current = api.snapshot
+  }, [view, api.snapshot])
+
+  // 面板開合／手機轉向時保持畫布中心的世界座標，不讓公仔跑出視窗。
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    let width = el.clientWidth
+    let height = el.clientHeight
+    const observer = new ResizeObserver(([entry]) => {
+      const nextWidth = entry.contentRect.width
+      const nextHeight = entry.contentRect.height
+      // 擷取舊尺寸：React 的 state updater 可能在本回呼結束後才執行。
+      const oldWidth = width
+      const oldHeight = height
+      width = nextWidth
+      height = nextHeight
+      if (Math.abs(nextWidth - oldWidth) > 0.5 || Math.abs(nextHeight - oldHeight) > 0.5) {
+        setView((v) => {
+          const fitted = fitView(el, snapshotRef.current())
+          // 畫布縮小到角色裝不下時重新適合畫面；其他情況保持原縮放與中心。
+          if ((nextWidth < oldWidth || nextHeight < oldHeight) && v.z > fitted.z + 0.01) return fitted
+          return { ...v, x: v.x + (nextWidth - oldWidth) / 2, y: v.y + (nextHeight - oldHeight) / 2 }
+        })
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [stageRef, setView])
 
   // 滾輪：一般 = 平移；Ctrl/Cmd + 滾輪 = 以指標為中心縮放
   useEffect(() => {
@@ -172,7 +206,7 @@ export default function CanvasStage({ api }: { api: StageApi }) {
     <div
       ref={stageRef}
       className={`stage ${preview ? 'is-preview' : ''}`}
-      style={{ backgroundColor: '#edeff1', cursor }}
+      style={{ cursor }}
       onPointerDown={onStagePointerDown}
       onDragOver={(e) => {
         if (!preview && e.dataTransfer.types.includes('application/x-doll')) {
@@ -192,6 +226,7 @@ export default function CanvasStage({ api }: { api: StageApi }) {
                 <div className={`board-label ${el.locked ? 'is-locked' : ''}`}>
                   <Icon d={P.person} size={14} />
                   <span>{el.name}</span>
+                  <span className="board-pose">/ {poseLabel(el.pose)}</span>
                   {el.locked && <Icon d={P.lock} size={12} />}
                 </div>
               )}
@@ -200,7 +235,12 @@ export default function CanvasStage({ api }: { api: StageApi }) {
                 style={{ background: bgColor(doc) }}
                 onPointerDown={(e) => onBoardPointerDown(e, el)}
               >
-                <Character design={el.design} svgId={`doll-${el.id}`} />
+                <div className="board-art">
+                  <Character design={el.design} pose={el.pose} svgId={`doll-${el.id}`} />
+                  {isSel && poseMode && (
+                    <RigOverlay el={el} snapshot={api.snapshot} commitSnapshot={api.commitSnapshot} onJoint={api.onJoint} />
+                  )}
+                </div>
               </div>
             </div>
           )
@@ -228,6 +268,16 @@ export default function CanvasStage({ api }: { api: StageApi }) {
               >
                 <Icon d={P.move} />
               </button>
+              <button
+                type="button"
+                className={`icon-btn ${poseMode ? 'is-active' : ''}`}
+                title="開啟／關閉姿勢編輯"
+                aria-label="姿勢編輯"
+                aria-pressed={poseMode}
+                onClick={api.onPoseMode}
+              >
+                <Icon d={P.pose} />
+              </button>
             </div>
             <div className="pill-group">
               <button type="button" className="icon-btn" title="畫布中央加一隻公仔" onClick={api.addCenter}>
@@ -252,6 +302,13 @@ export default function CanvasStage({ api }: { api: StageApi }) {
               </button>
             </div>
           </div>
+
+          {poseMode && (
+            <div className="pose-stage-tip">
+              <span className="pose-stage-dot" />
+              {selId ? '骨架模式 · 拖曳圓點調整關節' : '骨架模式 · 請先點選一隻公仔'}
+            </div>
+          )}
 
           {/* 右下縮放列 */}
           <div className="float-pill zoom-pill">
@@ -300,25 +357,4 @@ export default function CanvasStage({ api }: { api: StageApi }) {
 
 function apiTemplate(key: string): DollTemplate | undefined {
   return DOLL_TEMPLATES.find((t) => t.key === key)
-}
-
-/** 適合畫面的計算（給 fit 用） */
-export function fitView(stage: HTMLDivElement, doc: Doc): View {
-  const r = stage.getBoundingClientRect()
-  const b = docBounds(doc)
-  if (!b) {
-    return {
-      z: 1,
-      x: r.width / 2 - BOARD.w / 2,
-      y: r.height / 2 - BOARD.h / 2,
-    }
-  }
-  const pad = 72
-  const z = Math.min((r.width - pad * 2) / b.w, (r.height - pad * 2) / b.h, 1.4)
-  const z2 = Math.min(2.5, Math.max(0.15, z))
-  return {
-    z: z2,
-    x: (r.width - b.w * z2) / 2 - b.x * z2,
-    y: (r.height - b.h * z2) / 2 - b.y * z2,
-  }
 }
